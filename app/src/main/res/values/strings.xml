@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Imasong</string>
+    <string name="recognizing">Recognizing</string>
+    <string name="capture">Take a photo</string>
+</resources>
