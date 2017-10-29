@@ -78,9 +78,9 @@ public class MainActivity extends AppCompatActivity implements IACRCloudResultWi
 
         this.mConfig.context = this;
         this.mConfig.dbPath = path; // offline db path, you can change it with other path which this app can access.
-        this.mConfig.host = "secret";
-        this.mConfig.accessKey = "secret";
-        this.mConfig.accessSecret = "secret";
+        this.mConfig.host = getString(R.string.acrcloud_host);
+        this.mConfig.accessKey = getString(R.string.acrcloud_access_key);
+        this.mConfig.accessSecret = getString(R.string.acrcloud_access_secret);
         this.mConfig.protocol = ACRCloudConfig.ACRCloudNetworkProtocol.PROTOCOL_HTTP; // PROTOCOL_HTTPS
         this.mConfig.reqMode = ACRCloudConfig.ACRCloudRecMode.REC_MODE_REMOTE;
 //        this.mConfig.reqMode = ACRCloudConfig.ACRCloudRecMode.REC_MODE_LOCAL;
