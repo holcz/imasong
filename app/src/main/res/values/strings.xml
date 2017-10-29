@@ -2,4 +2,6 @@
     <string name="app_name">Imasong</string>
     <string name="recognizing">Recognizing</string>
     <string name="capture">Take a photo</string>
+    <string name="error_recognize">Cannot recognize</string>
+    <string name="error_start">Cannot start recognition</string>
 </resources>

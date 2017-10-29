@@ -8,228 +8,83 @@ import android.provider.MediaStore;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.acrcloud.rec.sdk.ACRCloudClient;
-import com.acrcloud.rec.sdk.ACRCloudConfig;
-import com.acrcloud.rec.sdk.ACRCloudResult;
-import com.acrcloud.rec.sdk.IACRCloudResultWithAudioListener;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.example.holcz.imasong.songrecognition.AcrCloudSongRecognizerImpl;
+import com.example.holcz.imasong.songrecognition.Song;
+import com.example.holcz.imasong.songrecognition.SongRecognizer;
+import com.example.holcz.imasong.songrecognition.SongRecognizerListener;
 
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class MainActivity extends AppCompatActivity implements IACRCloudResultWithAudioListener {
+public class MainActivity extends AppCompatActivity implements SongRecognizerListener {
 
-    private static final String TAG = "MyActivity";
+    private static final String TAG = "MainActivity";
     static final int REQUEST_IMAGE_CAPTURE = 1;
 
-    private ACRCloudClient mClient;
-    private ACRCloudConfig mConfig;
-
-    private boolean mProcessing = false;
-    private boolean initState = false;
-
-    private String path = "";
     private String mCurrentPhotoPath;
 
     private Song songResult;
     private boolean photoTaken = false;
 
-    private long startTime = 0;
-    private long stopTime = 0;
-
-    private TextView mResult;
+    private TextView resultTextView;
     private ImageView photoView;
+
+    protected SongRecognizer songRecognizer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-
-        findViewById(R.id.restartRecButton).setOnClickListener((l) -> startRecognize());
+        findViewById(R.id.restartRecButton).setOnClickListener((l) -> startRecognition());
         findViewById(R.id.takePhotoButton).setOnClickListener((l) -> takePhoto());
 
-        mResult = findViewById(R.id.result_text);
+        resultTextView = findViewById(R.id.result_text);
         photoView = findViewById(R.id.photoView);
 
-        path = Environment.getExternalStorageDirectory().toString()
-                + "/acrcloud/model";
+        songRecognizer = initSongRecognizer();
+    }
 
-        File file = new File(path);
-        if(!file.exists()){
-            file.mkdirs();
-        }
+    private SongRecognizer initSongRecognizer() {
+        SongRecognizer songRecognizer = new AcrCloudSongRecognizerImpl(this);
+        songRecognizer.setSongRecognizerListener(this);
+        return songRecognizer;
+    }
 
-
-        this.mConfig = new ACRCloudConfig();
-        this.mConfig.acrcloudResultWithAudioListener = this;
-
-        // If you implement IACRCloudResultWithAudioListener and override "onResult(ACRCloudResult result)", you can get the Audio data.
-        //this.mConfig.acrcloudResultWithAudioListener = this;
-
-        this.mConfig.context = this;
-        this.mConfig.dbPath = path; // offline db path, you can change it with other path which this app can access.
-        this.mConfig.host = getString(R.string.acrcloud_host);
-        this.mConfig.accessKey = getString(R.string.acrcloud_access_key);
-        this.mConfig.accessSecret = getString(R.string.acrcloud_access_secret);
-        this.mConfig.protocol = ACRCloudConfig.ACRCloudNetworkProtocol.PROTOCOL_HTTP; // PROTOCOL_HTTPS
-        this.mConfig.reqMode = ACRCloudConfig.ACRCloudRecMode.REC_MODE_REMOTE;
-//        this.mConfig.reqMode = ACRCloudConfig.ACRCloudRecMode.REC_MODE_LOCAL;
-        //this.mConfig.reqMode = ACRCloudConfig.ACRCloudRecMode.REC_MODE_BOTH;
-
-        this.mClient = new ACRCloudClient();
-        // If reqMode is REC_MODE_LOCAL or REC_MODE_BOTH,
-        // the function initWithConfig is used to load offline db, and it may cost long time.
-        this.initState = this.mClient.initWithConfig(this.mConfig);
-        if (this.initState) {
-            this.mClient.startPreRecord(3000); //startRecognize prerecord, you can call "this.mClient.stopPreRecord()" to stop prerecord.
-        }
+    @Override
+    protected void onRestart() {
+        this.songRecognizer.restart();
+        super.onRestart();
     }
 
     @Override
     protected void onStop() {
-        stop();
-        cancel();
+        this.songRecognizer.stop();
         super.onStop();
     }
 
     @Override
     protected void onResume() {
-        this.mClient.startPreRecord(3000); //startRecognize prerecord, you can call "this.mClient.stopPreRecord()" to stop prerecord.
-        startRecognize();
+        if (this.songResult != null) {
+            this.songRecognizer.restart();
+        }
         super.onResume();
-    }
-
-    @Override
-    public void onResult(ACRCloudResult acrCloudResult) {
-        if (this.mClient != null) {
-            this.mClient.cancel();
-            mProcessing = false;
-        }
-        Log.v(TAG, "");
-        String tres = "\n";
-        String result = acrCloudResult.getResult();
-
-        try {
-            JSONObject j = new JSONObject(result);
-            JSONObject j1 = j.getJSONObject("status");
-            int j2 = j1.getInt("code");
-            if (j2 == 0) {
-                JSONObject metadata = j.getJSONObject("metadata");
-                //
-                if (metadata.has("humming")) {
-                    JSONArray hummings = metadata.getJSONArray("humming");
-                    for (int i = 0; i < hummings.length(); i++) {
-                        JSONObject tt = (JSONObject) hummings.get(i);
-                        String title = tt.getString("title");
-                        JSONArray artistt = tt.getJSONArray("artists");
-                        JSONObject art = (JSONObject) artistt.get(0);
-                        String artist = art.getString("name");
-                        tres = tres + (i + 1) + ".  " + title + "\n";
-                    }
-                }
-                if (metadata.has("music")) {
-                    JSONArray musics = metadata.getJSONArray("music");
-                    for (int i = 0; i < musics.length(); i++) {
-                        JSONObject tt = (JSONObject) musics.get(i);
-                        String title = tt.getString("title");
-                        JSONArray artistt = tt.getJSONArray("artists");
-                        JSONObject art = (JSONObject) artistt.get(0);
-                        String artist = art.getString("name");
-                        songResult = new Song(artist, title);
-                        tres = tres + (i + 1) + ".  Title: " + title + "  Artist: " + artist + "\n";
-                    }
-                }
-                if (metadata.has("streams")) {
-                    JSONArray musics = metadata.getJSONArray("streams");
-                    for (int i = 0; i < musics.length(); i++) {
-                        JSONObject tt = (JSONObject) musics.get(i);
-                        String title = tt.getString("title");
-                        String channelId = tt.getString("channel_id");
-                        tres = tres + (i + 1) + ".  Title: " + title + "    Channel Id: " + channelId + "\n";
-                    }
-                }
-                if (metadata.has("custom_files")) {
-                    JSONArray musics = metadata.getJSONArray("custom_files");
-                    for (int i = 0; i < musics.length(); i++) {
-                        JSONObject tt = (JSONObject) musics.get(i);
-                        String title = tt.getString("title");
-                        tres = tres + (i + 1) + ".  Title: " + title + "\n";
-                    }
-                }
-                tres = tres + "\n\n" + result;
-            } else {
-                tres = result;
-            }
-        } catch (JSONException e) {
-            tres = result;
-            e.printStackTrace();
-        }
-
-        if (songResult != null) {
-            mResult.setText(songResult.toString());
-            addSongToBitmap();
-        } else {
-            mResult.setText("Cannot recognize");
-        }
-    }
-
-    @Override
-    public void onVolumeChanged(double v) {
-
     }
 
     private void takePhoto(){
         dispatchTakePictureIntent();
-        startRecognize();
+        startRecognition();
     }
 
-    private void startRecognize() {
-        Log.v(TAG, "startRecognize");
-        if (!this.initState) {
-            Log.v(TAG, "init error");
-            return;
-        }
-
-        if (!mProcessing) {
-            mProcessing = true;
-            Log.v(TAG, "startRecognize");
-            songResult = null;
-            mResult.setText("Recognizing...");
-            if (this.mClient == null || !this.mClient.startRecognize()) {
-                mProcessing = false;
-                mResult.setText("startRecognize error!");
-            }
-            startTime = System.currentTimeMillis();
-        }
-    }
-
-    private void stop() {
-        Log.v(TAG, "stop");
-
-        if (mProcessing && this.mClient != null) {
-            this.mClient.stopRecordToRecognize();
-        }
-        mProcessing = false;
-
-        stopTime = System.currentTimeMillis();
-    }
-
-    private void cancel() {
-        if (mProcessing && this.mClient != null) {
-            mProcessing = false;
-            this.mClient.cancel();
-            mResult.setText("");
-        }
+    private void startRecognition() {
+        this.songResult = null;
+        resultTextView.setText(getString(R.string.recognizing));
+        this.songRecognizer.start();
     }
 
     private void dispatchTakePictureIntent() {
@@ -325,43 +180,20 @@ public class MainActivity extends AppCompatActivity implements IACRCloudResultWi
 //
 //                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
 //                // app-defined int constant. The callback method gets the
-//                // result of the request.
+//                // resultTextView of the request.
 //            }
 //        }
     }
 
-    class Song {
+    @Override
+    public void onResult(Song song) {
+        this.songResult = song;
+        this.resultTextView.setText(song.toString());
+    }
 
-        private String artist;
-        private String title;
-
-        public Song(String artist, String title) {
-            this.artist = artist;
-            this.title = title;
-        }
-
-        public String getArtist() {
-            return artist;
-        }
-
-        public void setArtist(String artist) {
-            this.artist = artist;
-        }
-
-        public String getTitle() {
-            return title;
-        }
-
-        public void setTitle(String title) {
-            this.title = title;
-        }
-
-        @Override
-        public String toString() {
-            return "Song{" +
-                    "artist='" + artist + '\'' +
-                    ", title='" + title + '\'' +
-                    '}';
-        }
+    @Override
+    public void onError(String msg) {
+        this.songResult = null;
+        this.resultTextView.setText(msg);
     }
 }
