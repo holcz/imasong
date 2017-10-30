@@ -10,45 +10,41 @@ import android.support.v4.view.ViewPager;
 public class MainActivity extends FragmentActivity {
 
     private static final String TAG = "MainActivity";
-    static final int FRAGMENT_NUM = 2;
+    private static final Fragment[] FRAGMENTS = new Fragment[1];
 
-    MyAdapter mAdapter;
-    ViewPager mPager;
-
-    CameraFragment cameraFragment;
+    FragmentAdapterImpl adapter;
+    ViewPager pager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mAdapter = new MyAdapter(getSupportFragmentManager());
+        adapter = new FragmentAdapterImpl(getSupportFragmentManager());
 
-        mPager = (ViewPager)findViewById(R.id.pager);
-        mPager.setAdapter(mAdapter);
+        pager = findViewById(R.id.pager);
+        pager.setAdapter(adapter);
 
-        cameraFragment = new CameraFragment();
-
+        initFragments();
     }
 
-    class MyAdapter extends FragmentPagerAdapter {
-        public MyAdapter(FragmentManager fm) {
+    protected void initFragments() {
+        FRAGMENTS[0] = new CameraFragment();
+    }
+
+    class FragmentAdapterImpl extends FragmentPagerAdapter {
+        public FragmentAdapterImpl(FragmentManager fm) {
             super(fm);
         }
 
         @Override
         public int getCount() {
-            return 1;
+            return FRAGMENTS.length;
         }
 
         @Override
         public Fragment getItem(int position) {
-            switch (position) {
-                case 0:
-                    return cameraFragment;
-                default:
-                    return null;
-            }
+            return FRAGMENTS[position];
         }
     }
 
