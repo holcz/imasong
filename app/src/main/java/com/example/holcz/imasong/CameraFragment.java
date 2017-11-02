@@ -63,6 +63,7 @@ public class CameraFragment extends Fragment implements SongRecognizerListener {
     private SongRecognizer initSongRecognizer() {
         SongRecognizer songRecognizer = new AcrCloudSongRecognizerImpl(this.getContext());
         songRecognizer.setSongRecognizerListener(this);
+        songRecognizer.initialize();
         return songRecognizer;
     }
 
@@ -80,9 +81,7 @@ public class CameraFragment extends Fragment implements SongRecognizerListener {
 
     @Override
     public void onResume() {
-        if (this.songResult != null) {
-            this.songRecognizer.restart();
-        }
+        startRecognition();
         super.onResume();
     }
 

@@ -7,10 +7,14 @@ import android.support.v4.app.FragmentPagerAdapter;
 import android.os.Bundle;
 import android.support.v4.view.ViewPager;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MainActivity extends FragmentActivity {
 
     private static final String TAG = "MainActivity";
-    private static final Fragment[] FRAGMENTS = new Fragment[1];
+//    private static final List<Fragment> FRAGMENTS = new ArrayList<>();
+    private static final Fragment[] FRAGMENTS = new Fragment[2];
 
     FragmentAdapterImpl adapter;
     ViewPager pager;
@@ -29,7 +33,10 @@ public class MainActivity extends FragmentActivity {
     }
 
     protected void initFragments() {
+//        FRAGMENTS.add(new CameraFragment());
+//        FRAGMENTS.add(new GalleryFragment());
         FRAGMENTS[0] = new CameraFragment();
+        FRAGMENTS[1] = new GalleryFragment();
     }
 
     class FragmentAdapterImpl extends FragmentPagerAdapter {
@@ -39,12 +46,14 @@ public class MainActivity extends FragmentActivity {
 
         @Override
         public int getCount() {
+//            return FRAGMENTS.size();
             return FRAGMENTS.length;
         }
 
         @Override
         public Fragment getItem(int position) {
             return FRAGMENTS[position];
+//            return FRAGMENTS.get(position);
         }
     }
 

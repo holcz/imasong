@@ -152,14 +152,20 @@ public class AcrCloudSongRecognizerImpl implements SongRecognizer, IACRCloudResu
                 }
                 if (metadata.has("music")) {
                     JSONArray musics = metadata.getJSONArray("music");
-                    for (int i = 0; i < musics.length(); i++) {
-                        JSONObject tt = (JSONObject) musics.get(i);
-                        String title = tt.getString("title");
-                        JSONArray artistt = tt.getJSONArray("artists");
-                        JSONObject art = (JSONObject) artistt.get(0);
-                        String artist = art.getString("name");
-                        songResult = new Song(artist, title);
-                    }
+                    JSONObject tt = (JSONObject) musics.get(0);
+                    String title = tt.getString("title");
+                    JSONArray artistt = tt.getJSONArray("artists");
+                    JSONObject art = (JSONObject) artistt.get(0);
+                    String artist = art.getString("name");
+                    songResult = new Song(artist, title);
+//                    for (int i = 0; i < musics.length(); i++) {
+//                        JSONObject tt = (JSONObject) musics.get(i);
+//                        String title = tt.getString("title");
+//                        JSONArray artistt = tt.getJSONArray("artists");
+//                        JSONObject art = (JSONObject) artistt.get(0);
+//                        String artist = art.getString("name");
+//                        songResult = new Song(artist, title);
+//                    }
                 }
                 if (metadata.has("streams")) {
                     JSONArray musics = metadata.getJSONArray("streams");
