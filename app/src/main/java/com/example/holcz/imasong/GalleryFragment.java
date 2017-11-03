@@ -20,14 +20,13 @@ import android.widget.TextView;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 public class GalleryFragment extends Fragment {
 
     static final String TAG = "GalleryFragment";
-    private final Map<String, ImageItem> preLoadedImages = new HashMap();
 
     private GridView gridView;
     private GridViewAdapter gridAdapter;
@@ -38,23 +37,84 @@ public class GalleryFragment extends Fragment {
         View rootView = inflater.inflate(
                 R.layout.gallery_fragment, container, false);
 
-        preLoadImages();
-
         gridView = rootView.findViewById(R.id.gallery_grid_view);
-        gridAdapter = new GridViewAdapter(this.getContext(), inflater, R.layout.image_layout, new ArrayList<>(preLoadedImages.values()));
+        gridAdapter = new GridViewAdapter(this.getContext(), inflater, R.layout.image_layout, loadImages());
         gridView.setAdapter(gridAdapter);
 
         return rootView;
     }
 
-    private void preLoadImages() {
+    @Override
+    public void onResume() {
+        super.onResume();
+        updateImages();
+    }
+
+    private ArrayList<ImageItem> loadImages() {
+        final ArrayList<ImageItem> imageItems = new ArrayList<>();
         File storageDir = this.getContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+
         for (File imageFile : storageDir.listFiles()) {
-            if (!preLoadedImages.containsKey(imageFile.getAbsolutePath())) {
-                preLoadedImages.put(imageFile.getAbsolutePath(), new ImageItem(imageFile.getAbsolutePath()));
+            ImageItem imageItem = loadImage(imageFile);
+            if (imageItem != null) {
+                imageItems.add(imageItem);
+            }
+        }
+        return imageItems;
+    }
+
+    private void updateImages() {
+        File storageDir = this.getContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+
+        for (File imageFile : storageDir.listFiles()) {
+            if (!gridAdapter.contains(imageFile.getAbsolutePath())) {
+registerForContextMenu();                gridAdapter.add(loadImage(imageFile));
             }
         }
     }
+
+    private ImageItem loadImage(File imageFile) {
+        ImageItem loadedImageItem = null;
+        // Get the dimensions of the View
+        int targetW = 100; // mImageView.getWidth();
+        int targetH = 100; //mImageView.getHeight();
+
+        // Get the dimensions of the bitmap
+        BitmapFactory.Options bmOptions = new BitmapFactory.Options();
+        bmOptions.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(imageFile.getAbsolutePath(), bmOptions);
+        int photoW = bmOptions.outWidth;
+        int photoH = bmOptions.outHeight;
+
+        // Determine how much to scale down the image
+        int scaleFactor = Math.min(photoW/targetW, photoH/targetH);
+
+        // Decode the image file into a Bitmap sized to fill the View
+        bmOptions.inJustDecodeBounds = false;
+        bmOptions.inSampleSize = scaleFactor;
+        bmOptions.inPurgeable = true;
+
+        Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath(), bmOptions);
+        if (bitmap != null) {
+            String song = getSongInfoFromExifData(imageFile.getAbsoluteFile());
+            loadedImageItem = new ImageItem(bitmap, song, imageFile.getAbsolutePath());
+        }
+        return loadedImageItem;
+    }
+
+    private String getSongInfoFromExifData(File imageFile) {
+        try {
+            ExifInterface exifInterface = new ExifInterface(imageFile.getAbsolutePath());
+            String song = exifInterface.getAttribute(ExifInterface.TAG_USER_COMMENT);
+            if (song != null) {
+                return song;
+            }
+        } catch (IOException e) {
+            Log.e(GalleryFragment.TAG, e.getMessage(), e);
+        }
+        return "Unrecognized";
+    }
+
 }
 
 class GridViewAdapter extends ArrayAdapter {
@@ -62,6 +122,7 @@ class GridViewAdapter extends ArrayAdapter {
     private int layoutResourceId;
     private List<ImageItem> data;
     private LayoutInflater layoutInflater;
+    private Set<String> imageItemSet;
 
     public GridViewAdapter(Context context, LayoutInflater layoutInflater, int layoutResourceId, List<ImageItem> data) {
         super(context, layoutResourceId, data);
@@ -69,6 +130,31 @@ class GridViewAdapter extends ArrayAdapter {
         this.layoutResourceId = layoutResourceId;
         this.context = context;
         this.data = data;
+        this.imageItemSet = initImageItemSet(data);
+    }
+
+    private Set<String> initImageItemSet(List<ImageItem> data) {
+        final Set<String> imageItemSet = new HashSet<>();
+        for (ImageItem imageItem : data) {
+            imageItemSet.add(imageItem.getImagePath());
+        }
+        return imageItemSet;
+    }
+
+    public void add(@Nullable ImageItem imageItem) {
+        if (imageItem != null ) {
+            this.data.add(imageItem);
+            this.imageItemSet.add(imageItem.getImagePath());
+            super.add(imageItem);
+        }
+    }
+
+    public boolean contains(ImageItem imageItem) {
+        return this.contains(imageItem.getImagePath());
+    }
+
+    public boolean contains(String imagePath) {
+        return imageItemSet.contains(imagePath);
     }
 
     @Override
@@ -99,59 +185,38 @@ class GridViewAdapter extends ArrayAdapter {
 }
 
 class ImageItem {
-    private String imageAbsolutePath;
-    private Bitmap image;
-    private boolean loaded = false;
-    private String song;
+    private final Bitmap image;
+    private final String song;
+    private final String imagePath;
 
-    public ImageItem(String imageAbsolutePath) {
-        this.imageAbsolutePath = imageAbsolutePath;
+    public ImageItem(Bitmap image, String song, String imagePath) {
+        this.image = image;
+        this.song = song;
+        this.imagePath = imagePath;
     }
 
     public Bitmap getImage() {
-        if (!this.loaded) {
-            this.image = loadImage(imageAbsolutePath);
-        }
         return image;
     }
 
     public String getSong() {
-        return song != null ? song : "Unrecognized";
+        return song;
     }
 
-    private Bitmap loadImage(String path) {
-        // Get the dimensions of the View
-        File imageFile = new File(path);
-        int targetW = 100; // mImageView.getWidth();
-        int targetH = 100; //mImageView.getHeight();
+    public String getImagePath() {
+        return imagePath;
+    }
 
-        // Get the dimensions of the bitmap
-        BitmapFactory.Options bmOptions = new BitmapFactory.Options();
-        bmOptions.inJustDecodeBounds = true;
-        BitmapFactory.decodeFile(imageFile.getAbsolutePath(), bmOptions);
-        int photoW = bmOptions.outWidth;
-        int photoH = bmOptions.outHeight;
+    @Override
+    public int hashCode() {
+        return imagePath.hashCode();
+    }
 
-        // Determine how much to scale down the image
-        int scaleFactor = Math.min(photoW/targetW, photoH/targetH);
-
-        // Decode the image file into a Bitmap sized to fill the View
-        bmOptions.inJustDecodeBounds = false;
-        bmOptions.inSampleSize = scaleFactor;
-        bmOptions.inPurgeable = true;
-
-        Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath(), bmOptions);
-        String song = null;
-        if (bitmap != null) {
-            try {
-                ExifInterface exifInterface = new ExifInterface(imageFile.getAbsolutePath());
-                song = exifInterface.getAttribute(ExifInterface.TAG_USER_COMMENT);
-                this.song = song != null ? song : "Unrecognized";
-            } catch (IOException e) {
-                Log.e(GalleryFragment.TAG, e.getMessage(), e);
-            }
+    @Override
+    public boolean equals(Object obj) {
+        if (obj != null && obj.getClass().equals(this.getClass())) {
+            return this.imagePath.equals(((ImageItem) obj).imagePath);
         }
-        this.loaded = true;
-        return bitmap;
+        return false;
     }
 }
